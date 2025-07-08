@@ -80,15 +80,6 @@ All raw readings are corrected by these values before logging.
 
 ---
 
-## 🪫 Optional Enhancements (Coming Soon)
-
-- Battery voltage monitoring  
-- Low-power sleep between logs  
-- Motion classification (resting, walking, flipping)  
-- LoRa or BLE support for remote data download  
-
----
-
 ## 📌 Setup Instructions
 
 1. Install the latest Arduino IDE  
