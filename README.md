@@ -53,18 +53,6 @@ Any detected error (e.g. missing sensor, SD failure) is logged with a timestamp.
 
 ---
 
-## ⚙️ Calibration Offsets (Fixed)
-
-| Axis | Raw Stationary Reading | Offset Applied |
-|------|------------------------|----------------|
-| X    | 31                     | −31            |
-| Y    | 9                      | −9             |
-| Z    | 251                    | −251           |
-
-All raw readings are corrected by these values before logging.
-
----
-
 ## 💡 LED Blink Codes
 
 | Blink Pattern                 | Meaning |
@@ -87,7 +75,6 @@ All raw readings are corrected by these values before logging.
 3. Load the code onto your TinyZero  
 4. Insert a formatted microSD card  
 5. Power with USB or 3.7V LiPo battery  
-6. Place on stable surface for accurate readings
 
 ---
 
