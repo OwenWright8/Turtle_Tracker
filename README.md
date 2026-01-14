@@ -1,96 +1,113 @@
-# 🐢 TinyZero Accelerometer Data Logger
+# Turtle Accelerometer Logger (TinyZero + BMA250 + RTC + microSD)
 
-## Overview
+A low-power turtle movement logger that records 3-axis accelerometer data (X/Y/Z) plus onboard temperature to a daily CSV file on a microSD card, with timestamping from an RTC and separate startup/error logs.
 
-This project is a **low-power accelerometer and temperature data logger** built using the **TinyCircuits TinyZero** platform. It records motion and environmental data to a microSD card using precise timestamps from a real-time clock (RTC). The goal is to log animal movement (e.g. turtles) or environmental conditions in remote, battery-powered conditions.
-
----
-
-## 🔧 Hardware Components
-
-| Component                             | Purpose |
-|--------------------------------------|---------|
-| **TinyCircuits TinyZero**            | Main microcontroller (ATSAMD21G18) |
-| **TinyCircuits TinyShield MicroSD**  | Stores CSV log data and status logs |
-| **TinyCircuits TinyShield RTC**      | Keeps accurate timestamps (DS1339) |
-| **TinyZero Built-in BMA250**         | 3-axis accelerometer & temperature sensor |
-| **3.7V LiPo Battery**                | Powers the device in the field |
-| **LED (onboard)**                    | Visual feedback for status & errors |
+This project is designed for field deployments where you want consistent time-stamped motion data with minimal power use.
 
 ---
 
-## 📁 File Output Structure
+## Hardware
 
-### `/d/logMMDD.csv`
-Main data log file for the day (one per calendar day).
-```
-Date,Time,X,Y,Z,Temp(C)
-2025-07-08,11:06:03,4,53,245,27.50
-```
+**Main components**
+- **TinyCircuits TinyZero** (ATSAMD21G18)
+- **TinyZero built-in BMA250** accelerometer (3-axis + temperature)
+- **TinyCircuits TinyShield MicroSD** (data storage)
+- **TinyCircuits TinyShield RTC** (DS1339 — keeps time for timestamps)
+- **3.7V LiPo battery**
 
-### `/d/startup.log`
-Each startup event is logged with timestamps.
-```
-2025-07-08,11:06:01,STARTUP,Accelerometer initialized
-```
-
-### `/d/errors.log`
-Any detected error (e.g. missing sensor, SD failure) is logged with a timestamp.
-```
-2025-07-08,11:06:03,ERROR,BMA250 NOT DETECTED
-```
+**microSD wiring note**
+- This sketch uses `const int chipSelect = 10;`
+- Ensure your TinyShield MicroSD CS pin is wired/mapped to **D10** (or change `chipSelect` to match your build).
 
 ---
 
-## 📦 Features
+## Libraries Used
 
-- ✅ Accelerometer + temperature logging every 10 seconds  
-- ✅ Real-time timestamps via RTC  
-- ✅ Automatic daily file creation  
-- ✅ Onboard LED blink diagnostics  
-- ✅ Startup and error logs separated from data  
-- ✅ Calibration offsets applied for consistent readings  
+- `Wire.h` (I2C)
+- `SPI.h` + `SD.h` (microSD logging)
+- `RTClib.h` (RTC interface)
+- `BMA250.h` (TinyCircuits BMA250 driver)
+- `ArduinoLowPower.h` (sleep to reduce battery drain)
 
----
-
-## 💡 LED Blink Codes
-
-| Blink Pattern                 | Meaning |
-|------------------------------|---------|
-| **3 short blinks**           | Device started (`setup()` entered) |
-| **1 long blink**             | Wire (I2C) initialized |
-| **2 long blinks**            | RTC initialized |
-| **3 long blinks**            | SD card initialized |
-| **4 long blinks**            | `/d` directory created |
-| **3 fast blinks**            | Accelerometer initialized |
-| **1 short blink (every 10s)**| New log entry saved |
-| **5 long blinks** (looping)  | Fatal error (e.g. SD/RTC/sensor failure) |
+Install these through the Arduino Library Manager when available, or via the TinyCircuits library releases.
 
 ---
 
-## 📌 Setup Instructions
+## What It Logs
 
-1. Install the latest Arduino IDE  
-2. Install the TinyCircuits board package  
-3. Load the code onto your TinyZero  
-4. Insert a formatted microSD card  
-5. Power with USB or 3.7V LiPo battery  
+Each sample logs:
+- **Date** (YYYY-MM-DD)
+- **Time** (HH:MM:SS)
+- **X, Y, Z** accelerometer readings (raw integer values from BMA250)
+- **Temp(C)** estimated temperature derived from the BMA250 raw temperature register:
+  - `temp = rawTemp * 0.5 + 24.0`
 
----
-
-## 🧪 Example Use Case
-
-- Track turtle activity in a natural habitat  
-- Log movement patterns and resting durations  
-- Collect temperature exposure over time  
-- Operate fully unattended for days
+### CSV Header
+`Date,Time,X,Y,Z,Temp(C)`
 
 ---
 
-## 📞 Support / Troubleshooting
+## File & Folder Structure on SD Card
 
-If you're having issues with logging, power, or sensor readings:
+On boot, the sketch ensures a `/d` directory exists and writes three kinds of files:
 
-- ✅ Check the `/d/errors.log` file for diagnostics  
-- ✅ Use the LED blink pattern to identify where it stopped  
-- ✅ Ensure battery is charged and SD card is working
+### 1) Daily data CSV (movement + temp)
+- **Path format:** `/d/logMMDD.csv`
+- Example (Jan 13): `/d/log0113.csv`
+- If the file is new, it writes the CSV header once.
+
+### 2) Startup log
+- **Path:** `/d/startup.log`
+- Contains timestamped status messages for successful initialization steps.
+
+### 3) Error log
+- **Path:** `/d/errors.log`
+- Contains timestamped error messages (e.g., file open failures, sensor missing).
+
+---
+
+## Sampling Interval / Power Behavior
+
+Each loop:
+1. Reads BMA250 accel + temperature
+2. Prints a line to `SerialUSB` (for debugging)
+3. Appends one CSV row to the daily log file and flushes it
+4. Blinks the onboard LED briefly
+5. Sleeps using low power mode:
+   - `LowPower.sleep(7000);`
+
+**Important:** there is also a ~150 ms LED blink delay and some logging overhead, so the *effective* interval is a bit more than 7 seconds. The comment in the code notes this is intended to approximate a ~10 second cadence depending on overhead.
+
+---
+
+## LED Blink Codes
+
+The built-in LED is used as a simple “status UI” during setup and fault conditions:
+
+- **3 quick blinks (200 ms):** sketch started
+- **1 blink:** `Wire.begin()` done
+- **2 blinks:** RTC detected/initialized
+- **3 blinks:** SD card initialized
+- **4 blinks:** `/d` folder created (only if it didn’t already exist)
+- **3 fast blinks (100 ms):** accelerometer initialized
+- **Short single blink each loop:** a sample was logged
+
+**Fatal errors:** the sketch uses **5 blinks** and then halts (`while(1);`) for major failures such as:
+- RTC not found / not initialized
+- SD init failure
+- failure to create `/d`
+- failure to open startup/error/data logs
+- BMA250 not detected (special case below)
+
+---
+
+## Sensor Missing / Fault Handling
+
+After reading the accelerometer, the code checks:
+
+```cpp
+if (x == -1 && y == -1 && z == -1) {
+  logError("BMA250 NOT DETECTED");
+  blinkLED(5, 200);
+  while (1);
+}
